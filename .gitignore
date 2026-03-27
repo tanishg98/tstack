@@ -1,0 +1,5 @@
+.DS_Store
+.cursor/
+*.local.json
+*.env
+node_modules/
