@@ -1,127 +1,132 @@
 # Claude Code Builder Kit
 
-A production-grade collection of Claude Code skills, agents, and rules that turns Claude into a specialist engineering team — capable of building static websites, browser extensions, and mobile apps with proper quality gates at every step.
+> A structured set of Claude Code skills, agents, and rules that replaces ad-hoc AI prompting with a repeatable engineering workflow.
 
-Built and maintained by [Tanish Girotra](https://github.com/tanishg98).
+Built by [Tanish Girotra](https://github.com/tanishg98) · MIT License
 
 ---
 
-## What This Is
+## The Problem
 
-Claude Code supports custom `/skills`, agents, and always-on rules via `.claude/` configuration files. This repo is a curated set of those files, designed around one goal: **produce complete, polished output — not vague drafts**.
+Claude Code is powerful out of the box — but without structure, every session starts from scratch. You get inconsistent output, half-finished implementations, no quality gates, and the same corrections over and over.
 
-Every skill follows the same pattern:
-- Clear trigger conditions so Claude knows exactly when to use it
-- Phased workflow with explicit handoffs
-- A mandatory eval/quality gate before delivery
-- No AI slop, no shortcuts
+This kit fixes that. It gives Claude a **defined role for every phase of a build** — planning, execution, code review, self-correction — with explicit handoffs and quality checks between them.
+
+---
+
+## How It Works
+
+Every project follows the same loop:
+
+```
+/explore → /createplan → /execute → /review → /reflect
+```
+
+| Phase | Skill/Agent | What happens |
+|-------|-------------|-------------|
+| Understand | `/explore` | Maps the codebase, traces data flows, surfaces risks before any code is written |
+| Plan | `/createplan` | Produces a scoped, step-sized implementation plan — no code yet |
+| Build | `/execute` | Implements one step at a time, updates the tracker, writes a status report after each |
+| Review | `review` agent | Audits the output — severity-classified findings, every issue labeled AUTO-FIX or ASK |
+| Learn | `/reflect` | When something goes wrong, traces the failure and applies a surgical fix to the rule/skill that caused it |
 
 ---
 
 ## Skills
 
-### `/static-site-replicator`
-Replicates any reference website as a polished static HTML/CSS/JS site with new brand assets. Full lifecycle: screenshot reference → catalog design patterns → build → self-eval → deliver.
+### Planning & Execution
 
-### `/browser-extension-builder`
-Builds Chrome and Firefox extensions (Manifest V3). Covers architecture decisions, service worker patterns, message passing, permissions auditing, CSP checklist, and packaging. Outputs a ready-to-load unpacked extension.
+**`/createplan`**
+Creates a structured implementation plan before any code is written. Scopes the work into steps that are each completable in one session. Flags risks and open questions before they become bugs.
 
-### `/mobile-app-builder`
-Two-path mobile builder:
-- **PWA path** — adds `manifest.json`, service worker, and mobile-specific CSS to any static site. Installable on iPhone/Android from the browser.
-- **Expo path** — full React Native scaffold for apps that need native device APIs or app store distribution.
+**`/execute`**
+Implements the plan one step at a time. After each step: marks it complete, writes a status report, and stops — so you stay in control of what gets built and when.
 
-### `/createplan`
-Creates a structured implementation plan before any code is written. Produces a markdown plan with steps, subtasks, key decisions, and risks.
+**`/explore`**
+Reads the codebase autonomously before any feature work. Returns a structured report covering affected files, integration points, constraints, and open questions. Run this before every `/createplan`.
 
-### `/execute`
-Implements a plan step by step, updating the tracker after each step and writing a status report.
+### Building
 
-### `/explore`
-Autonomous codebase exploration — reads files, traces data flows, identifies affected code, returns a structured report. Always run before planning.
+**`/browser-extension-builder`**
+Full lifecycle for Chrome and Firefox extensions (Manifest V3):
+- Architecture decision: popup / content script / service worker / options page — only what's needed
+- Correct patterns for message passing, `chrome.storage`, CSP-safe HTML
+- Security checklist: permission minimisation, shadow DOM isolation, no `eval()`
+- Self-test checklist and packaging instructions
 
-### `/reflect`
-Self-improvement skill. Triggered when something goes wrong or the user gives corrective feedback. Traces the failure, proposes a surgical fix, applies it after approval.
+**`/mobile-app-builder`**
+Two paths depending on what you're building:
+- **PWA** — turns any web project into an installable mobile app: `manifest.json`, service worker, safe area insets, touch targets, iOS Safari fixes
+- **Expo / React Native** — full scaffold for apps needing native device APIs, with navigation, platform-specific patterns, and build instructions
 
-### Other utilities
-`/create-issue` · `/documentation` · `/learning` · `/peer-review`
+### Code Quality
+
+**`/reflect`**
+Self-correction skill. Auto-triggers when something goes wrong or you push back on Claude's output. Traces the failure to the specific rule or skill that caused it, proposes a precise fix, and applies it only after your approval. The kit gets better over time.
+
+**`/peer-review`**
+Triages feedback from a human reviewer. Classifies each finding as Accept, Accept with wrong fix, Context Missing, or Reject — then produces a prioritised action plan.
+
+**`/learning`**
+Teaching mode. Explains any concept, pattern, or decision in the codebase across three progressive levels of depth. Pauses for confirmation between each.
+
+### Project Utilities
+
+**`/create-issue`** — Captures a bug or feature as a clean, structured issue document mid-flow without losing context.
+
+**`/documentation`** — Updates `CHANGELOG.md` and inline docs after a feature or fix is implemented.
 
 ---
 
 ## Agents
 
-### `site-eval`
-Pre-launch quality gate for static websites. Audits 8 dimensions: section completeness, visual hierarchy, brand consistency, animation quality, responsiveness, images, technical hygiene, performance — plus **AI slop detection**. Returns PASS / CONDITIONAL / FAIL.
+Agents run autonomously on a focused task and return a structured report. They never modify files — they only read, analyse, and respond.
 
-### `review`
-Focused code review with severity levels (CRITICAL / HIGH / MEDIUM / LOW). Fix-First classification: every finding is labeled AUTO-FIX or ASK before action is taken.
+**`review`**
+Focused code review. Checks logging, error handling, TypeScript, security, React hooks, performance, and architecture. Every finding gets a severity (CRITICAL / HIGH / MEDIUM / LOW) and every CRITICAL/HIGH gets a concrete fix. Findings are classified as AUTO-FIX (mechanical, apply immediately) or ASK (judgment required, confirm first).
 
-### `explore`
-Codebase exploration agent. Called before any plan or feature — reads files, maps dependencies, returns a structured exploration report.
+**`explore`**
+Codebase exploration. Given a feature or bug, reads the relevant files, traces the data flow, identifies integration points and constraints, and returns an exploration report with numbered open questions. Feeds directly into `/createplan`.
 
 ---
 
 ## Rules (Always On)
 
-### `builder-ethos`
-Four core principles applied to every build:
-1. **Boil the Lake** — completeness is cheap with AI. The full implementation, always.
-2. **Search Before Building** — three-layer knowledge model (tried-and-true → new-and-popular → first principles).
-3. **Fix-First Review** — every finding classified as AUTO-FIX or ASK before action.
-4. **No AI Slop** — explicit ban list of patterns that signal low-craft AI output.
+Rules load automatically in every session and apply to all output — no invocation needed.
 
-### `static-site-standards`
-Architecture, CSS, animation, image, and HTML rules for every static site. Includes the AI slop ban list and the eval gate requirement.
+**`builder-ethos`** — The four principles behind every build:
 
-### `code-standards`
-Type safety, comment discipline, and pattern-following rules for all code written in this project.
+1. **Boil the Lake** — AI makes completeness cheap. Full implementation every time, not 90%.
+2. **Search Before Building** — Three layers: tried-and-true patterns → new-and-popular (scrutinise) → first principles (most valuable).
+3. **Fix-First Review** — Every finding is AUTO-FIX or ASK before any action is taken.
+4. **No AI Slop** — Explicit ban list of the patterns that signal low-craft AI output.
+
+**`code-standards`** — Type safety, comment discipline, and pattern consistency. Comments explain *why*, not what. No `any` types without justification. New code follows the closest existing pattern in the codebase.
 
 ---
 
 ## Installation
 
-Clone into your project's `.claude/` folder, or copy individual skill/agent files:
+Copy the `.claude/` folder into any project:
 
 ```bash
-# Clone the full kit into a project
-git clone https://github.com/tanishg98/claude-builder-kit .claude-builder
-
-# Or copy a specific skill
-cp -r .claude-builder/.claude/skills/static-site-replicator ~/.claude/skills/
+git clone https://github.com/tanishg98/claude-builder-kit
+cp -r claude-builder-kit/.claude your-project/.claude
 ```
 
-Or reference directly in your own project's `.claude/` directory structure:
+Or pick individual skills:
 
-```
-your-project/
-└── .claude/
-    ├── skills/
-    │   └── static-site-replicator/
-    │       └── SKILL.md
-    ├── agents/
-    │   ├── site-eval.md
-    │   └── review.md
-    └── rules/
-        ├── builder-ethos.md
-        └── code-standards.md
+```bash
+# Just the planning workflow
+cp -r claude-builder-kit/.claude/skills/createplan your-project/.claude/skills/
+cp -r claude-builder-kit/.claude/skills/execute your-project/.claude/skills/
+cp -r claude-builder-kit/.claude/agents/explore.md your-project/.claude/agents/
+
+# Just the browser extension builder
+cp -r claude-builder-kit/.claude/skills/browser-extension-builder your-project/.claude/skills/
 ```
 
----
-
-## The AI Slop Ban List
-
-Patterns this kit actively prevents — the fingerprints of low-craft AI-generated UI:
-
-- Purple/violet/indigo gradient as primary palette (`#6366f1–#8b5cf6`)
-- 3-column feature grid: icon-in-colored-circle + bold title + 2-line description
-- Generic hero copy: "Welcome to X", "Unlock the power of...", "Streamline your workflow"
-- `text-align: center` on more than 60% of text containers
-- Inter as the sole font choice
-- Missing hover/focus states on interactive elements
-- `height: 100vh` (breaks on iOS Safari — should be `min-height: 100dvh`)
-- `outline: none` without a visible focus replacement
-
-The `site-eval` agent checks for every one of these before a site is approved for delivery.
+Then open Claude Code in your project — the skills are immediately available as `/skill-name` commands.
 
 ---
 
@@ -130,29 +135,20 @@ The `site-eval` agent checks for every one of these before a site is approved fo
 ```
 .claude/
 ├── agents/
-│   ├── explore.md          — codebase exploration
-│   ├── review.md           — code review with severity levels
-│   └── site-eval.md        — pre-launch quality gate
+│   ├── explore.md                    — codebase exploration
+│   └── review.md                     — severity-classified code review
 ├── rules/
-│   ├── builder-ethos.md    — core engineering principles
-│   ├── code-standards.md   — types, comments, patterns
-│   └── static-site-standards.md — always-on web rules
+│   ├── builder-ethos.md              — four core engineering principles
+│   └── code-standards.md             — types, comments, patterns
 └── skills/
-    ├── static-site-replicator/
-    ├── browser-extension-builder/
-    ├── mobile-app-builder/
-    ├── createplan/
-    ├── execute/
-    ├── explore/   (deprecated — use agent)
-    ├── reflect/
-    ├── learning/
-    ├── documentation/
-    ├── create-issue/
-    └── peer-review/
+    ├── browser-extension-builder/    — Chrome/Firefox MV3 extensions
+    ├── mobile-app-builder/           — PWA + Expo/React Native
+    ├── createplan/                   — implementation planning
+    ├── execute/                      — step-by-step execution
+    ├── reflect/                      — self-correction loop
+    ├── learning/                     — teaching mode
+    ├── documentation/                — changelog + inline docs
+    ├── create-issue/                 — issue capture
+    ├── peer-review/                  — triage reviewer feedback
+    └── explore/                      — codebase exploration (skill version)
 ```
-
----
-
-## License
-
-MIT — use freely, attribution appreciated.
