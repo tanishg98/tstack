@@ -254,6 +254,7 @@
   <h2>Contents</h2>
   <ol>
     <li><a href="#what">What tanker is</a></li>
+    <li><a href="#simple-use">Simple how-to-use</a></li>
     <li><a href="#autopilot">Autopilot mode (/cto)</a></li>
     <li><a href="#owners-loop">The owner's loop</a></li>
     <li><a href="#manual-vs-auto">Manual vs autopilot</a></li>
@@ -279,6 +280,80 @@
   <p>The core premise: Claude is capable, but without structure every session starts from scratch. tanker gives Claude a <em>role for every phase</em> — product thinking, architecture, planning, execution, review, ship, monitor — plus a persistent project brain that remembers conventions, decisions, and landmines across sessions.</p>
   <p class="rule-of-thumb">If there's a skill for the phase you're in, use it. Skipping to raw code is how you get AI slop.</p>
   <p>tanker now also runs in <strong>autopilot</strong> — one command, brief to live product. See the next section. The manual phase-by-phase flow still exists for cases where you want hands-on control.</p>
+</section>
+
+<section id="simple-use">
+  <p class="section-tag">01b · Quick start</p>
+  <h2>Simple how-to-use</h2>
+  <p>The whole system, reduced to what you actually type and read. No jargon.</p>
+
+  <h3>One-time setup (run these once per machine)</h3>
+  <pre><code># 1. Tell tanker your service tokens (one prompt per service, never echoed)
+/vault-add github
+/vault-add vercel
+/vault-add supabase
+/vault-add anthropic
+
+# 2. Index your Obsidian vault so /cto can pull your real context
+bash .claude/skills/brain-index/setup.sh
+~/.claude/brain-index/venv/bin/python .claude/skills/brain-index/index.py
+
+# 3. (Optional) Add a few GitHub repos that inspire you
+/cto-add-ref add https://github.com/vercel/next.js \
+  --why "Canonical Next.js patterns" --tags nextjs,frontend
+/cto-add-ref add https://github.com/supabase/supabase \
+  --why "Auth + RLS done right" --tags supabase,auth</code></pre>
+
+  <h3>Daily — the only three commands you'll type</h3>
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th><th>When to use</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>/cto "&lt;your idea in one sentence&gt;"</code></td>
+        <td>Kicks off the full autopilot. tanker loads your brain, drafts a PRD, builds + deploys the product.</td>
+        <td>Whenever you have a new product or major feature to build.</td>
+      </tr>
+      <tr>
+        <td>Reply <code>approved</code> or <code>fix: &lt;feedback&gt;</code> or <code>abort</code></td>
+        <td>Responds to either the PRD gate or the MVP gate. tanker keeps going on approved, retries with your feedback on fix, stops on abort.</td>
+        <td>When tanker says <em>"✋ ready for review"</em> at one of the two human gates.</td>
+      </tr>
+      <tr>
+        <td><code>/cto --resume &lt;slug&gt;</code></td>
+        <td>Picks up an in-progress build from where it stopped (state.json knows the phase).</td>
+        <td>Coming back the next day, or after closing the terminal mid-build.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>What you'll see when tanker pings you</h3>
+  <pre><code>✋ PRD ready for review
+Open: outputs/d2c-os-v1/prd/index.html
+Read: outputs/d2c-os-v1/prd/prd.md
+
+prd-reviewer verdict: PASS
+
+When you're done reviewing, reply with one of:
+  approved             — proceed to /architect and the build
+  fix: &lt;feedback&gt;       — re-run /prd with this feedback
+  abort                — stop /cto, keep state.json for resume later</code></pre>
+  <p>Open the HTML file in your browser. Every screen, every state, every feature is there as a clickable wireframe + narrative. Click around for 15–20 minutes. Then come back to the terminal and reply.</p>
+
+  <h3>Adding to your knowledge over time</h3>
+  <table>
+    <thead><tr><th>You did this…</th><th>Run this to teach tanker</th></tr></thead>
+    <tbody>
+      <tr><td>Wrote new notes in Obsidian</td><td><code>~/.claude/brain-index/venv/bin/python .claude/skills/brain-index/index.py</code> (re-indexes only changed chunks — fast)</td></tr>
+      <tr><td>Found a GitHub repo worth copying patterns from</td><td><code>/cto-add-ref add &lt;url&gt; --why "..." --tags ...</code></td></tr>
+      <tr><td>Made a key decision in a session</td><td><code>/learn</code> — writes to <code>.claude/brain.md</code></td></tr>
+      <tr><td>Want to brief a fresh session quickly</td><td><code>/remember</code> — injects brain into <code>CLAUDE.md</code> so it auto-loads next time</td></tr>
+      <tr><td>Finished a sprint or week</td><td><code>/retro</code> — captures what shipped, what broke, what slowed you down</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>The one rule:</strong> when tanker stops at a gate and asks for review, actually review it. The whole system depends on you being the head of product at those two moments. Everything else is automated so you have the attention to spend there.
+  </div>
 </section>
 
 <section id="autopilot">
