@@ -1,9 +1,9 @@
 ---
 name: cto
-description: Top-level autopilot orchestrator — turns a one-line product brief into a live, deployed product. Loads the brain + memory, runs github-scout for prior art, runs grill→benchmark→architect→advisor decision gates, provisions infra in parallel (gh + supabase + vercel + railway via /vault-add credentials), dispatches engineering subagents in parallel for frontend/backend/data, gates merges with autoresearch-review + pre-merge agent, deploys preview→prod with auto-rollback, wires monitoring. State checkpointed every phase to outputs/<slug>/state.json so any session can resume. Default mode is autopilot — pass `--gated` for human approval at each phase.
+description: Top-level autopilot orchestrator with human-in-the-loop gates. Turns a one-line product brief into a live, deployed product. Loads the brain + memory, runs github-scout for prior art, runs grill→/prd→architect→advisor decision gates, provisions infra in parallel (gh + supabase + vercel + railway via /vault-add credentials), dispatches engineering subagents in parallel for frontend/backend/data, gates merges with autoresearch-review + pre-merge agent, deploys preview→prod with auto-rollback, wires monitoring. Two HARD STOPS for human review: (1) post-PRD after prd-reviewer agent PASSes, (2) post-local-build after mvp-reviewer agent PASSes. State checkpointed every phase to outputs/<slug>/state.json so any session can resume. Default mode is autopilot with HITL gates — pass `--full-auto` to skip the human gates (not recommended for first run on a new product).
 triggers:
   - /cto
-args: "[product brief in plain English] [optional: --gated | --resume <slug> | --status <slug>]"
+args: "[product brief in plain English] [optional: --full-auto (skip human gates) | --resume <slug> | --status <slug>]"
 ---
 
 # /cto — Autopilot Orchestrator
@@ -80,17 +80,54 @@ Mark `phases_done: [..., "reference"]`.
 
 ---
 
-## Phase 3 — Decision gates (sequential)
+## Phase 3 — Decision gates (sequential, with HITL gate at the PRD)
 
 Run these in order, each reading the previous output:
 
 1. **`/grill`** — six forcing questions. In autopilot, you answer them yourself using the brief + context + reference brief, write `outputs/<slug>/grill.md`. Don't actually pause; this is the cheapest decision-gate.
-2. **`/benchmark`** (only if competitive) — heuristic: skip if reference brief shows <3 direct competitors. Otherwise produce `outputs/<slug>/benchmark.md`.
-3. **`/architect`** — produce `outputs/<slug>/architecture.md`. Component diagram, API contracts, data model, tech decisions.
-4. **`/createplan`** — produce `outputs/<slug>/plan.md`. Step-by-step build order with verify gates.
-5. **`/advisor`** — cross-model peer review of architecture + plan. Write `outputs/<slug>/advisor.md`. **Apply only fixes the advisor flags as CRITICAL or HIGH.** Per project memory: don't auto-apply cross-model changes over author-model output.
 
-Mark `phases_done: [..., "grill", "benchmark"?, "architect", "plan", "advisor"]`.
+2. **`/benchmark`** (only if competitive) — heuristic: skip if reference brief shows <3 direct competitors. Otherwise produce `outputs/<slug>/benchmark.md`.
+
+3. **`/prd`** — exhaustive product-facing PRD. Produces `outputs/<slug>/prd/prd.md` plus lightweight HTML wireframes for every screen + landing page at `outputs/<slug>/prd/index.html`. This is the artifact the human reviews.
+
+4. **`prd-reviewer` agent** — pre-qualifies the PRD bundle. Returns `BLOCK` / `PASS WITH FIXES` / `PASS`.
+   - On `BLOCK`: re-run `/prd` with the agent's fix list as guidance. Max 2 retries. After 2 retries still BLOCK → STOP, surface to user.
+   - On `PASS WITH FIXES`: proceed to gate (5) but include the fix list in the handoff message.
+   - On `PASS`: proceed to gate (5) cleanly.
+
+5. **🛑 HARD STOP — Human review gate 1 (PRD)**
+
+   Unless `--full-auto` was passed:
+
+   ```
+   STOP execution. Print:
+
+   ✋ PRD ready for review
+   Open: outputs/<slug>/prd/index.html
+   Read: outputs/<slug>/prd/prd.md
+
+   prd-reviewer verdict: <PASS | PASS WITH FIXES>
+   <if PASS WITH FIXES, include the fix list>
+
+   When you're done reviewing, reply with one of:
+     "approved"             — proceed to /architect and the build
+     "fix: <feedback>"      — re-run /prd with this feedback, retry the gate
+     "abort"                — stop /cto, keep state.json for resume later
+   ```
+
+   Wait for user input. Do NOT proceed silently. The whole point of this gate is that the human is the head of product.
+
+   - On `approved`: append `"prd"` and `"prd_human_review"` to `phases_done`. Continue to step 6.
+   - On `fix: ...`: write the feedback to `outputs/<slug>/prd/feedback-<n>.md`, re-run `/prd` with feedback as input, then prd-reviewer, then back to this gate.
+   - On `abort`: write to state.json, exit.
+
+6. **`/architect`** — produce `outputs/<slug>/architecture.md`. Component diagram, API contracts, data model, tech decisions. Reads the approved PRD as the source of truth.
+
+7. **`/createplan`** — produce `outputs/<slug>/plan.md`. Step-by-step build order with verify gates, mapping each step to a feature in the PRD.
+
+8. **`/advisor`** — cross-model peer review of PRD + architecture + plan. Write `outputs/<slug>/advisor.md`. **Apply only fixes the advisor flags as CRITICAL or HIGH.** Per project memory: don't auto-apply cross-model changes over author-model output without explicit owner approval.
+
+Mark `phases_done: [..., "grill", "benchmark"?, "prd", "prd_human_review", "architect", "plan", "advisor"]`.
 
 ---
 
@@ -144,20 +181,64 @@ Mark `phases_done: [..., "build", "merged"]`.
 
 ---
 
-## Phase 6 — Deploy
+## Phase 6 — Local MVP review (HITL gate 2)
 
-By this point, Vercel and Railway already have preview deploys triggered automatically by GitHub merges. Check status:
+Before shipping anything to production, the human reviews the working MVP locally.
+
+1. **Spin up local preview** — install deps if needed (`npm install`, `pip install -r requirements.txt`), start the dev server. For a Next.js + FastAPI split: `npm run dev` for frontend (port 3000) + `uvicorn` for backend (port 8000), wired together.
+
+2. **`mvp-reviewer` agent** — pre-qualifies the local build against the approved PRD. Hits every screen, walks every golden path, checks responsive at 375/768/1440px, validates all screen states render, runs accessibility checks, captures screenshots if playwright is available. Returns `BLOCK` / `PASS WITH FIXES` / `PASS`.
+   - On `BLOCK`: dispatch the relevant build subagent(s) with the agent's failure report. Max 2 retries.
+   - On `PASS WITH FIXES`: proceed to gate (3) with the fix list included.
+   - On `PASS`: proceed to gate (3) cleanly.
+
+3. **🛑 HARD STOP — Human review gate 2 (MVP)**
+
+   Unless `--full-auto` was passed:
+
+   ```
+   STOP execution. Print:
+
+   ✋ MVP ready for review
+   Open: http://localhost:<port>
+   Screenshots: outputs/<slug>/mvp-review/screenshots/  (if available)
+
+   mvp-reviewer verdict: <PASS | PASS WITH FIXES>
+   <if PASS WITH FIXES, include the fix list>
+
+   Coverage:
+     - Screens: <N>/<N>
+     - Features: <N>/<N>
+     - Golden paths: <N>/<N>
+
+   When you're done reviewing, reply with one of:
+     "approved"             — deploy to production
+     "fix: <feedback>"      — dispatch build subagents with this feedback, retry
+     "abort"                — stop /cto, keep local build, state.json for resume
+   ```
+
+   Wait for user input. The local server keeps running in the background while the user reviews.
+
+   - On `approved`: kill the local server, append `"mvp_human_review"` to `phases_done`, continue to step 4 (production deploy).
+   - On `fix: ...`: write feedback to `outputs/<slug>/mvp-review/feedback-<n>.md`, dispatch the relevant subagent (frontend / backend / data) with the feedback, run pre-merge + autoresearch-review on the resulting PR, merge, restart local server, re-run mvp-reviewer, return to this gate.
+   - On `abort`: kill local server, write state, exit.
+
+## Phase 7 — Production deploy
+
+(Only reached after gate 6 returns `approved`.)
+
+Vercel and Railway already have production deploys queued from the merged PRs. Verify:
 
 1. Hit Vercel API — confirm production deploy is `READY`
 2. Hit Railway API — confirm service is `SUCCESS` and healthcheck returning 200
 3. Smoke test: `curl -sf $PROD_URL/health` for backend, `curl -sf $PROD_URL` for frontend (expect 200, expect HTML)
-4. If any step fails: roll back via Vercel "Promote previous" / Railway "Redeploy previous", surface to user.
+4. If any step fails: roll back via Vercel "Promote previous" / Railway "Redeploy previous", surface to user — DO NOT auto-fix in production.
 
 Mark `phases_done: [..., "deploy"]`. Write deploy URLs to `state.json` under `deploy`.
 
 ---
 
-## Phase 7 — Monitoring
+## Phase 8 — Monitoring
 
 Run `/monitor` skill — wires up:
 - Sentry (errors) — using `sentry.auth_token` from vault
@@ -170,7 +251,7 @@ Mark `phases_done: [..., "monitor"]`.
 
 ---
 
-## Phase 8 — Final report
+## Phase 9 — Final report
 
 Print to user:
 
@@ -213,6 +294,9 @@ If a phase failed mid-flight (state.json shows `phase: "build"` but no `phases_d
 | Build subagent produces broken code | `/pre-merge` catches it, /cto dispatches the subagent again with the failure report (max 2 retries). After 2 fails, STOP. |
 | Deploy healthcheck fails | Auto-rollback. Surface logs. Do not proceed to monitoring. |
 | `/advisor` flags CRITICAL issue | STOP at end of phase 3. Surface to user. Don't auto-apply (project memory says owner prefers Opus PRD over Sonnet critique unless explicitly approved). |
+| `prd-reviewer` BLOCKs twice | STOP. Surface the agent's fix list. The PRD is fundamentally broken — owner needs to redirect, not just nudge. |
+| `mvp-reviewer` BLOCKs twice | STOP. Surface the agent's failure list + local server logs. The build doesn't match the PRD — owner decides whether to revise PRD or rebuild. |
+| Owner replies anything but `approved` / `fix:` / `abort` at a gate | Treat as `fix: <their reply>`. Don't try to interpret intent — feed it forward verbatim and let the next iteration decide. |
 
 ---
 

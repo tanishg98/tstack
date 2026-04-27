@@ -294,7 +294,14 @@
   └── intake → state.json created (outputs/&lt;slug&gt;/state.json)
       └── context load: brain.md + memory + Obsidian vault search (parallel)
           └── github-scout agent → ≥5 reference repos, what to copy, what to skip
-              └── /grill → /benchmark? → /architect → /createplan → /advisor
+              └── /grill → /benchmark?
+              └── /prd  → exhaustive PRD + HTML wireframes per screen + landing
+                  └── prd-reviewer agent → PASS / PASS WITH FIXES / BLOCK
+                      └── BLOCK → /prd retry (max 2)
+                  └── 🛑 HARD STOP — Human review gate 1
+                      └── owner reads outputs/&lt;slug&gt;/prd/index.html
+                      └── owner replies "approved" / "fix: ..." / "abort"
+              └── /architect → /createplan → /advisor
                   └── PROVISION (parallel)
                       ├── gh-provisioner       repo + branch protection + secrets
                       ├── supabase-provisioner project + RLS schema (Management API)
@@ -308,10 +315,39 @@
                   └── per PR: pre-merge agent + /autoresearch-review
                       └── on PASS: gh pr merge --squash
                       └── on FAIL: dispatch the engineer again with the report (max 2 retries)
-                  └── /deploy preview → smoke test → production
+                  └── spin up LOCAL preview (npm run dev / uvicorn / etc)
+                      └── mvp-reviewer agent → PASS / PASS WITH FIXES / BLOCK
+                          └── BLOCK → re-dispatch build subagents (max 2)
+                      └── 🛑 HARD STOP — Human review gate 2
+                          └── owner opens http://localhost:&lt;port&gt;
+                          └── owner replies "approved" / "fix: ..." / "abort"
+                  └── /deploy production → smoke test → live
                       └── healthcheck fails → auto-rollback
                   └── /monitor (Sentry + Plausible + uptime)
                   └── final report: prod URL, repo URL, dashboards</code></pre>
+
+  <h3>Human-in-the-loop gates</h3>
+  <p>The owner is the <strong>head of product</strong> in this loop. Autopilot's job is to never bring the owner half-finished work — review agents pre-qualify both gates so manual review is always against complete, working artifacts.</p>
+  <table>
+    <thead><tr><th>Gate</th><th>Pre-check (auto)</th><th>Owner reviews</th><th>Approve action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Gate 1 — PRD</strong></td>
+        <td><code>prd-reviewer</code> agent: every feature → screen, every screen → all states, no AI slop in mocks, ≥3 open questions, no hand-wave language</td>
+        <td><code>outputs/&lt;slug&gt;/prd/index.html</code> + <code>prd.md</code></td>
+        <td>Reply <code>approved</code> → <code>/cto</code> proceeds to <code>/architect</code>; reply <code>fix: ...</code> → re-run <code>/prd</code> with feedback</td>
+      </tr>
+      <tr>
+        <td><strong>Gate 2 — Local MVP</strong></td>
+        <td><code>mvp-reviewer</code> agent: every screen 200s, golden paths walk, all states render, responsive at 375/768/1440px, no console errors</td>
+        <td>Live local URL: <code>http://localhost:&lt;port&gt;</code></td>
+        <td>Reply <code>approved</code> → <code>/cto</code> deploys to production; reply <code>fix: ...</code> → re-dispatches build subagents</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>Why two gates and not more:</strong> the PRD gate catches strategic mistakes (wrong product) when fixing them is cheap. The MVP gate catches build mistakes (wrong UX, missed features) before any production traffic. Anything else (review every PR, review every screen as it's built) drowns the owner in noise. Two gates, both pre-qualified, is the right ratio.
+  </div>
 
   <h3>Why autopilot is production-grade (not just throwaway)</h3>
   <p>The safety isn't "stop and ask at every step" — it's that <strong>every step is reversible and observed</strong>. The rails are architectural:</p>
@@ -478,7 +514,8 @@
   <h3>Autopilot</h3>
   <table>
     <tbody>
-      <tr><td><code>/cto</code> <strong>NEW</strong></td><td>Top-level orchestrator. Brief → live product. Runs brain load → github-scout → grill/architect/plan → parallel provision → parallel build → pre-merge gate → preview → prod → monitor. State checkpointed for resume.</td></tr>
+      <tr><td><code>/cto</code> <strong>NEW</strong></td><td>Top-level orchestrator with HITL gates. Brief → live product. Pre-qualifies work via review agents, then stops for owner approval at PRD and local-MVP. State checkpointed for resume.</td></tr>
+      <tr><td><code>/prd</code> <strong>NEW</strong></td><td>Exhaustive product-facing PRD: every feature mapped to screens, every screen with all states (empty/loading/populated/error), landing page outline, lightweight HTML wireframes per screen + landing.html. The artifact owner reviews at <strong>Gate 1</strong>.</td></tr>
       <tr><td><code>/vault-add</code> <strong>NEW</strong></td><td>Registers a credential in <code>~/.claude/vault/credentials.json</code> (0600). Never logs values. Required before <code>/cto</code> can provision real infra.</td></tr>
     </tbody>
   </table>
@@ -561,11 +598,13 @@
     </tbody>
   </table>
 
-  <h3>Research agent <strong>NEW</strong></h3>
+  <h3>Research + HITL pre-qualifier agents <strong>NEW</strong></h3>
   <table>
     <thead><tr><th>Agent</th><th>When to use</th></tr></thead>
     <tbody>
       <tr><td><code>github-scout</code></td><td>Before <code>/architect</code> on any new build — searches GitHub for ≥5 prior-art repos, reads READMEs + manifests, returns a Reference Brief covering the convergent stack, patterns to lift, footguns observed, and a first-principles override.</td></tr>
+      <tr><td><code>prd-reviewer</code></td><td>Pre-qualifies a PRD bundle before owner sees it (Gate 1). Checks every feature → screen mapping, every screen → all states, no AI slop in mocks, no hand-wave language. Returns BLOCK / PASS WITH FIXES / PASS.</td></tr>
+      <tr><td><code>mvp-reviewer</code></td><td>Pre-qualifies a local MVP build before owner sees it (Gate 2). Spins up the local server, walks every screen + golden path, checks responsive, validates all states render, runs accessibility checks. Returns BLOCK / PASS WITH FIXES / PASS.</td></tr>
     </tbody>
   </table>
 

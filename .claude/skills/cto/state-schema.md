@@ -79,8 +79,9 @@ Every `/cto` run writes to `outputs/<slug>/state.json`. This is the canonical sc
 
 ## Fields
 
-- `phase` — current phase, one of: `intake | context | reference | grill | benchmark | architect | plan | advisor | provision | build | deploy | monitor | report | done`
+- `phase` — current phase, one of: `intake | context | reference | grill | benchmark | prd | prd_review_agent | prd_human_review | architect | plan | advisor | provision | build | mvp_review_agent | mvp_human_review | deploy | monitor | report | done`
 - `phases_done` — append-only list. Resume protocol skips any phase in this list.
+- `human_gates` — `{ "prd": { "verdict": "approved" | "abort" | null, "feedback_iterations": <n>, "approved_at": "..." }, "mvp": { ... } }` — tracks the two HITL gates so resume knows whether the user already approved.
 - `errors` — append-only. On failure, push `{ phase, agent, error, ts }`. Don't silently swallow.
 
 ## Resume
