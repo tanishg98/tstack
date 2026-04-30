@@ -14,7 +14,13 @@
 
 ---
 
-> 🎬 **Demo GIF placeholder** — replace with a 30-second screen recording of `/cto "snake game"` going from brief to live URL. See [USER-CHECKLIST.md](./USER-CHECKLIST.md).
+<div align="center">
+
+![Tanker /cto autopilot demo](./assets/demo.gif)
+
+<sub>Synthesized animation of a real `/cto` run. Live screen-cast in `examples/saas-mvp/`.</sub>
+
+</div>
 
 ```bash
 /cto "AI business analyst for Indian D2C sellers — connects 6 SaaS tools, chat with your data"
