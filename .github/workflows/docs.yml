@@ -1,4 +1,8 @@
-name: Deploy docs to GitHub Pages
+name: Deploy docs site
+
+# Builds the mkdocs site under docs/ and publishes to GitHub Pages on every
+# push to main that touches docs source. Enable once via repo Settings →
+# Pages → Source: GitHub Actions.
 
 on:
   push:

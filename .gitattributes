@@ -1,0 +1,22 @@
+# GitHub Linguist overrides — keep the language stats honest.
+# Tanker is a Claude Code framework (Markdown SOPs + Python tooling),
+# not an HTML project. The HTML in `outputs/` and `guidebook.html` is
+# generated artifacts / documentation, not framework source.
+
+# Generated /cto run artifacts — exclude entirely from language stats
+outputs/**          linguist-generated=true
+
+# Standalone documentation file
+guidebook.html      linguist-documentation=true
+
+# Persona-shots are external screenshots, not authored code
+assets/persona-shots/**  linguist-vendored=true
+
+# Treat docs site source as documentation
+docs/**             linguist-documentation=true
+
+# Launch copy is documentation for the maintainer, not user-facing source
+.launch/**          linguist-documentation=true
+
+# Example HTML wireframes inside example transcripts are illustrative
+examples/**/*.html  linguist-documentation=true
