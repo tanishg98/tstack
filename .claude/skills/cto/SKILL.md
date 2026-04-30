@@ -3,7 +3,7 @@ name: cto
 description: Top-level autopilot orchestrator with human-in-the-loop gates. Turns a one-line product brief into a live, deployed product. Loads the brain + memory, runs github-scout for prior art, runs grill→/prd→architect→advisor decision gates, provisions infra in parallel (gh + supabase + vercel + railway via /vault-add credentials), dispatches engineering subagents in parallel for frontend/backend/data, gates merges with autoresearch-review + pre-merge agent, deploys preview→prod with auto-rollback, wires monitoring. Two HARD STOPS for human review: (1) post-PRD after prd-reviewer agent PASSes, (2) post-local-build after mvp-reviewer agent PASSes. State checkpointed every phase to outputs/<slug>/state.json so any session can resume. Default mode is autopilot with HITL gates — pass `--full-auto` to skip the human gates (not recommended for first run on a new product).
 triggers:
   - /cto
-args: "[product brief in plain English] [optional: --full-auto (skip human gates) | --resume <slug> | --status <slug>]"
+args: "[product brief in plain English] [optional: --full-auto (skip human gates) | --resume <slug> | --status <slug> | --audit <slug> | --max-cost-usd <N> (default 10)]"
 ---
 
 # /cto — Autopilot Orchestrator
@@ -20,6 +20,13 @@ The user has chosen autopilot. Don't ask for permission at every phase. Run the 
 - **`/pre-merge` agent before any merge** → autoresearch + review run before main is touched
 
 If a rail trips (test fails, healthcheck fails, vault missing a key) — STOP. Report. Don't paper over.
+
+**Provenance:** every artifact you (or a dispatched skill/agent) produce gets a Message envelope appended to `outputs/<slug>/messages.jsonl`. Schema and examples in `message-schema.md` (sibling file). Every phase below ends with an `append_message` step — do not skip it. This is what makes the run replayable, auditable, and cost-trackable.
+
+**Budget:** the orchestrator respects `--max-cost-usd` (default `$10`). Track running cost in `state.json.budget.spent_usd` (sum of `cost_usd` across all messages.jsonl entries). Before dispatching a phase, check `spent_usd / max_cost_usd`:
+- < 0.7: proceed
+- 0.7–0.9: proceed but warn the user once
+- ≥ 1.0: STOP. Print `🛑 Budget cap hit ($spent / $max). State preserved at outputs/<slug>/state.json. Resume with --max-cost-usd <higher>.` Do not start the phase.
 
 ---
 
@@ -48,10 +55,18 @@ Create `outputs/<slug>/state.json`:
   "mode": "autopilot",
   "phase": "intake",
   "phases_done": [],
+  "budget": { "max_cost_usd": 10.0, "spent_usd": 0.0 },
+  "human_gates": { "prd": null, "mvp": null },
   "infra": {},
   "decisions": {},
   "deploy": {}
 }
+```
+
+Also `touch outputs/<slug>/messages.jsonl` (empty file). Append the first Message:
+
+```json
+{"id":"msg_<ulid>","ts":"<iso8601>","phase":"intake","cause_by":"/cto","sent_from":"cto:phase0","send_to":["cto:phase1"],"artifact_type":"brief","artifact_path":null,"status":"ok","meta":{"brief":"<brief>","mode":"autopilot"}}
 ```
 
 ---
@@ -86,6 +101,8 @@ Aggregate findings into `outputs/<slug>/context.md`. **Do not include private pe
 
 If the brain index doesn't exist yet, surface to user: "no brain index found — run `/brain-index` once to enable semantic retrieval. Falling back to keyword grep for this run."
 
+Append Messages: one for `context_brain`, one for `context_refs`, one for the aggregated `context.md`. Each `cause_by: "cto:phase1"`, `send_to: ["agent:github-scout","skill:grill","skill:prd"]`.
+
 Mark `phases_done: ["intake", "context"]`.
 
 ---
@@ -95,6 +112,8 @@ Mark `phases_done: ["intake", "context"]`.
 Dispatch `github-scout` agent (Agent tool, subagent_type="general-purpose" if no native github-scout type, with the contents of `.claude/agents/github-scout.md` as the prompt instruction). Pass the brief.
 
 Wait for `outputs/<slug>/reference-brief.md`. If it returns fewer than 5 references, the agent will say so — proceed anyway, but flag in state.json.
+
+Append Message: `cause_by: "agent:github-scout"`, `artifact_type: "reference_brief"`, `send_to: ["skill:grill","skill:benchmark","skill:prd","skill:architect"]`.
 
 Mark `phases_done: [..., "reference"]`.
 
@@ -147,6 +166,8 @@ Run these in order, each reading the previous output:
 
 8. **`/advisor`** — cross-model peer review of PRD + architecture + plan. Write `outputs/<slug>/advisor.md`. **Apply only fixes the advisor flags as CRITICAL or HIGH.** Per project memory: don't auto-apply cross-model changes over author-model output without explicit owner approval.
 
+Append a Message after each of: `/grill`, `/benchmark` (if run), `/prd`, `prd-reviewer`, `prd_human_review` gate (with `meta.verdict`), `/architect`, `/createplan`, `/advisor`. Each one's `in_reply_to` should point at the prior phase's message id (chain). The PRD message's `send_to` includes `["agent:prd-reviewer","human:gate-1"]`.
+
 Mark `phases_done: [..., "grill", "benchmark"?, "prd", "prd_human_review", "architect", "plan", "advisor"]`.
 
 ---
@@ -172,6 +193,8 @@ In practice: gh first, then [supabase], then [vercel, railway] in parallel.
 
 If any provisioner fails: write the error to state.json, STOP, surface to user. Do not proceed to build with broken infra.
 
+Append one `provision_report` Message per provisioner. Each `sent_from: "agent:<name>-provisioner"`, `send_to: ["cto:phase5"]`, `status: "ok"|"error"`. On error, populate `error` field with the API response message.
+
 Mark `phases_done: [..., "provision"]`.
 
 ---
@@ -192,10 +215,38 @@ Each subagent works on its own branch (`feature/<area>`), commits, and opens a P
 After all subagents return, the main thread (`/cto`) runs the merge sequence:
 
 For each PR (data → backend → frontend → content):
-1. Run `pre-merge` agent (already in `.claude/agents/`)
-2. Run `/autoresearch-review`
-3. If both PASS → `gh pr merge --squash`
-4. If FAIL → reflect, dispatch the relevant subagent again with the failure report
+
+```
+attempt = 0
+max_attempts = 3   # original + 2 review-driven retries
+while attempt < max_attempts:
+    pre_merge = run_agent("pre-merge", pr_diff)
+    autoresearch = run_skill("/autoresearch-review", pr_diff)
+    append_message(artifact_type="pre_merge_review", sent_from="agent:pre-merge",
+                   in_reply_to=<build_pr msg id>, status=pre_merge.verdict)
+    append_message(artifact_type="autoresearch_review", sent_from="skill:autoresearch-review",
+                   in_reply_to=<build_pr msg id>, status=autoresearch.verdict)
+
+    if pre_merge == PASS and autoresearch == MERGE_SAFE:
+        gh pr merge --squash
+        break
+    if pre_merge == PASS_WITH_FIXES and autoresearch in {PASS, MERGE_WITH_FIXES}:
+        # Auto-apply only fixes both reviewers agree are AUTO-FIX-class.
+        # Anything tagged ASK escalates immediately.
+        if has_ASK_findings: escalate_to_human(); break
+        dispatch_subagent_with_fixes()
+        attempt += 1
+        continue
+    # BLOCK / MERGE_BLOCK
+    dispatch_subagent_with_failure_report()
+    attempt += 1
+
+if attempt == max_attempts:
+    STOP. Surface the latest review output to user.
+    Append final Message with status="block" and meta.attempts=max_attempts.
+```
+
+The cap of 3 attempts (1 original + 2 retries) matches MetaGPT's `WriteCodeReview` loop. Beyond 2 retries, the failure is structural — surface to human, don't burn tokens.
 
 Mark `phases_done: [..., "build", "merged"]`.
 
@@ -254,6 +305,8 @@ Vercel and Railway already have production deploys queued from the merged PRs. V
 3. Smoke test: `curl -sf $PROD_URL/health` for backend, `curl -sf $PROD_URL` for frontend (expect 200, expect HTML)
 4. If any step fails: roll back via Vercel "Promote previous" / Railway "Redeploy previous", surface to user — DO NOT auto-fix in production.
 
+Append `deploy_report` Message: `sent_from: "cto:phase7"`, `meta: { prod_url, preview_url_pattern, healthcheck_passing, smoke_tests_passing }`. On failure, `status: "error"` and full rollback details in `error`.
+
 Mark `phases_done: [..., "deploy"]`. Write deploy URLs to `state.json` under `deploy`.
 
 ---
@@ -266,6 +319,8 @@ Run `/monitor` skill — wires up:
 - Uptime check — Better Stack / UptimeRobot via API, hitting `/health`
 
 If any monitoring credential is missing, skip that piece and note in state.json.
+
+Append `monitor_report` Message with each wired service in `meta.services` and skipped ones in `meta.skipped`.
 
 Mark `phases_done: [..., "monitor"]`.
 
@@ -296,6 +351,37 @@ Print to user:
 Mark `phases_done: [..., "report"]`. State.json complete.
 
 ---
+
+## Audit subcommand
+
+`/cto --audit <slug>` reads `outputs/<slug>/messages.jsonl` and prints a per-phase token + cost table. Read-only.
+
+```bash
+jq -s 'group_by(.phase) | map({
+  phase: .[0].phase,
+  msgs: length,
+  tokens_in: (map(.tokens_in // 0) | add),
+  tokens_out: (map(.tokens_out // 0) | add),
+  cost_usd: (map(.cost_usd // 0) | add)
+})' outputs/<slug>/messages.jsonl | column -t
+```
+
+End with `Total spent_usd / max_cost_usd` so the user sees runway.
+
+## Budget check (run before every phase)
+
+```python
+spent = sum(m.get("cost_usd", 0) for m in messages_jsonl)
+max_usd = state.budget.max_cost_usd
+ratio = spent / max_usd
+if ratio >= 1.0:
+    print(f"🛑 Budget cap hit (${spent:.2f} / ${max_usd:.2f}). Resume with --max-cost-usd <higher>.")
+    write_state({"phase": current_phase, "status": "halted_budget"})
+    exit()
+elif ratio >= 0.7 and not warned_already:
+    print(f"⚠️  Budget {ratio*100:.0f}% used (${spent:.2f} / ${max_usd:.2f}). Continuing.")
+    warned_already = True
+```
 
 ## Resume protocol
 
