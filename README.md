@@ -16,9 +16,9 @@
 
 <div align="center">
 
-![Tanker /cto autopilot demo](./assets/demo.gif)
+![Persona Studio — built with Tanker](./assets/demo.gif)
 
-<sub>Synthesized animation of a real `/cto` run. Live screen-cast in `examples/saas-mvp/`.</sub>
+**Real product built with Tanker:** [persona-studio-lime.vercel.app](https://persona-studio-lime.vercel.app) — India-first AI influencer studio. One `/cto` brief → deployed product.
 
 </div>
 

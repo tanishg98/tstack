@@ -1,24 +1,31 @@
 # Brief
 
+The actual brief that produced [persona-studio-lime.vercel.app](https://persona-studio-lime.vercel.app):
+
 ```
-/cto "AI business analyst for Indian D2C sellers — connects 6 SaaS tools, chat with your data"
+/cto "India-first AI influencer studio — build one believable virtual creator,
+      lock her identity across scenes, generate reusable content for Indian
+      campaigns. Persona builder + scene generator + feed preview."
 ```
 
 ## Why this example
 
-Smallest viable run that exercises the full `/cto` autopilot pipeline end-to-end:
+This is **not a synthesized demo.** It's a real `/cto` run that produced a deployed product, currently live in private beta with Indian creator workflows.
 
-- Multi-component (frontend + backend + db).
-- Real third-party integrations.
-- Production deployment to Vercel + Railway + Supabase.
-- Both human gates (PRD + MVP).
+Demonstrates Tanker's value end-to-end:
 
-If you want to see Tanker do its job at full scope, this is the one.
+- Multi-component (frontend + backend + image generation)
+- Real third-party integrations (image gen API, identity-lock model)
+- Production deployment to Vercel
+- Both human gates fired and approved
+- Full audit trail in `outputs/persona-studio/messages.jsonl`
 
-## Expected runtime
+## What you see in `transcript.md`
 
-- ~30 minutes of total owner attention (two review gates × ~15 min each).
-- ~3 hours of compute time end-to-end (depends on size of brain-index, cost of LLM tier).
-- Cost ceiling: $10 default, can be raised with `--max-cost-usd 20`.
+- Phase-by-phase capture of the `/cto` pipeline
+- Real PR URLs, real cost, real time
+- Screenshots of every state
+- Honest debrief of what broke + what shipped clean
 
-See `transcript.md` for the actual recorded run.
+→ See [transcript.md](./transcript.md) for the run.
+→ Live product: [persona-studio-lime.vercel.app](https://persona-studio-lime.vercel.app)
