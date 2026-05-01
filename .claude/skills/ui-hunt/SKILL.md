@@ -87,9 +87,9 @@ Produce a single synthesis — the design target for this build.
 ### Reference Brief: [Product Category]
 
 **Top 3 references:**
-1. [Product name] — [what to steal from it]
-2. [Product name] — [what to steal from it]
-3. [Product name] — [what to steal from it]
+1. [Product name] — [what to lift from it]
+2. [Product name] — [what to lift from it]
+3. [Product name] — [what to lift from it]
 
 **Recommended palette:**
 ```
@@ -165,7 +165,7 @@ Deliver in this order:
 
 - **Be specific, never vague.** "Nice typography" is noise. "Inter 600 at 32px with -0.5px tracking" is signal.
 - **Cite real products.** Don't invent imaginary references. If you can't find a strong reference after searching, say so and explain what the closest thing is.
-- **Steal like an artist.** The goal is not to copy — it's to understand what principles make something work, then apply those principles.
+- **Lift principles, not pixels.** The goal is not to copy — it's to understand what makes something work, then apply those principles to a fresh execution.
 - **One palette.** Don't give the user three palettes to choose from — synthesize one clear recommendation with a rationale.
 - **Anti-patterns must be category-specific.** Generic slop rules are in builder-ethos. This list is for the unique failure modes of this category.
 - **No mood board URLs.** A URL list is not a Reference Brief. Extract the intelligence, don't outsource the thinking.

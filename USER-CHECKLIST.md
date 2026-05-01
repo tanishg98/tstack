@@ -36,7 +36,7 @@ Bar: every item below is true *before* you announce anything.
   - [ ] Pin `tanker.dev` in the website field.
   - [ ] Enable Issues + Discussions.
   - [ ] Set up `CODE_OF_CONDUCT.md` (use Contributor Covenant).
-  - [ ] Set up `CONTRIBUTING.md` (steal from any well-run OSS repo).
+  - [ ] Set up `CONTRIBUTING.md` (any well-run OSS repo is a fine template).
 
 ---
 
@@ -104,7 +104,7 @@ If MetaGPT / AutoGen / CrewAI / gstack maintainers engage:
 
 ## What I (Claude) cannot do — but am ready to help with
 
-- **Implement Phase B steals (#7 per-agent memory slice, #8 pub-sub Environment).** Ask me to do this in a separate PR after launch. They're isolated changes.
+- **Implement v1.1 deferred features.** Ask me to do this in a separate PR after launch.
 - **Write the per-skill mkdocs pages.** Right now they're stubs pointing at SKILL.md. If you want full mkdocs pages with examples per skill, ask.
 - **Fill in example transcripts.** I can run `/cto` for you in a fresh project but I can't capture the GIF — the actual recording requires your screen.
 - **Reply to HN comments.** You have to. The voice has to be yours, and HN smells AI-generated comments.

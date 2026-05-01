@@ -105,7 +105,7 @@ cost_ceilings:
   analyst_default_usd: 2.00
   prd_default_usd: 1.50
 
-# Retry behaviour. Bounded loops everywhere — see steal #4.
+# Retry behaviour. Bounded loops everywhere — beyond N attempts, surface to human.
 retries:
   pre_merge_max: 2
   build_subagent_max: 2

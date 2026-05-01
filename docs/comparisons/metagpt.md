@@ -1,108 +1,136 @@
 # Tanker vs MetaGPT
 
-[MetaGPT](https://github.com/FoundationAgents/MetaGPT) is the most popular multi-agent code-generation framework — 40k+ stars, ICLR 2024 paper, Python-first. Tanker borrows MetaGPT's best architectural moves while ending in a different place: a deployed product, not a code repo.
+[MetaGPT](https://github.com/FoundationAgents/MetaGPT) is a multi-agent code-generation framework — Python-first, role-playing agents, ICLR 2024 paper. Tanker solves a different problem: shipping deployed products from a brief, on Claude Code, with human gates.
 
 ## TL;DR
 
-- **MetaGPT writes code.** Tanker ships products.
-- **MetaGPT is fully autonomous.** Tanker has two human gates — pre-qualified by review agents.
-- **MetaGPT is generic.** Tanker is opinionated.
-- **MetaGPT is multi-provider.** Tanker is Claude Code-native.
+- **Tanker ships deployed products. MetaGPT writes code on disk.** Different scope.
+- **Tanker has two human gates pre-qualified by review agents. MetaGPT runs fully autonomous.** Different operator model.
+- **Tanker is Claude Code-native and opinionated. MetaGPT is provider-generic and taste-neutral.** Different surface.
 
-If you want a generic Python framework you can drop into any LLM stack, use MetaGPT. If you want an opinionated Claude Code-native pipeline that ends in a deployed URL with monitoring wired, use Tanker.
+If you want a generic Python framework you can drop into any LLM stack, MetaGPT is the right tool. If you want an opinionated Claude Code-native pipeline that ends in a deployed URL with monitoring wired, Tanker is the right tool.
+
+---
+
+## What you get with Tanker that you don't get with MetaGPT
+
+### 1. **A deployed URL, not a code folder**
+
+Tanker's `/cto` autopilot provisions real infrastructure via official APIs:
+
+- GitHub repo with branch protection, CI, secrets pushed from a vault
+- Supabase project with RLS migrations + Management API integration
+- Vercel project linked to GitHub with preview deploys per PR
+- Railway service with healthcheck-gated rollback
+
+The end state is a live production URL with monitoring (Sentry + Plausible + uptime). MetaGPT stops at a code repo on disk.
+
+### 2. **Two human gates with pre-qualification**
+
+Tanker pauses at exactly two points: post-PRD and post-MVP. Each gate is pre-qualified by a review agent (`prd-reviewer`, `mvp-reviewer`) that runs an exhaustive check. The owner only sees the gate after the agent returns PASS. Total owner attention per `/cto` run: ~30 minutes.
+
+MetaGPT trusts the agent pipeline end-to-end. No human checkpoints.
+
+### 3. **Cost ceiling enforced by the framework**
+
+`/cto --max-cost-usd <N>` (default $10). Tanker tracks spend per Message envelope, warns at 70%, halts gracefully at 100%. Resume with a higher cap if needed. Predictable spend matters for solo builders.
+
+MetaGPT has no in-framework cost ceiling.
+
+### 4. **Resumable across sessions**
+
+`state.json` checkpointed every phase. `messages.jsonl` is the typed audit trail. `/cto --resume <slug>` picks up exactly where you left off. Laptop dies mid-build — no data lost.
+
+MetaGPT runs are per-process, not designed for resume.
+
+### 5. **Local semantic retrieval over your corpus**
+
+`brain-index` indexes your Obsidian vault into local ChromaDB. `refs-index` indexes curated GitHub repos you find inspiring. `/cto` Phase 1 retrieves from both before any other step — the orchestrator pulls from your accumulated knowledge, not generic GitHub search.
+
+MetaGPT starts every run cold.
+
+### 6. **Opinionated quality rails always on**
+
+Tanker's `builder-ethos` rule loads every session and encodes:
+
+- Explicit **No AI Slop ban list** (no purple gradients, no centered everything, no "Welcome to X" hero copy, no skipped heading levels)
+- **Boil the Lake** — full implementation every time, not 90%-good-enough
+- **Search Before Building** — three-layer knowledge model (tried-and-true → new-and-popular → first principles)
+- **Safety Before Speed** — irreversible actions require confirmation
+- **Skill Chaining** — every skill ends with a handoff to the next
+
+MetaGPT is taste-agnostic by design. Output quality depends on user prompts.
+
+### 7. **34 specialized skills + 9 agents**
+
+Tanker exposes a full pipeline as composable slash commands (`/grill` → `/benchmark` → `/prd` → `/architect` → `/createplan` → `/execute` → `/ship` → `/deploy` → `/monitor` → `/retro` → `/learn`). Plus dedicated agents for review (pre-merge, prd-reviewer, mvp-reviewer, site-eval), research (github-scout), and provisioning (gh / supabase / vercel / railway).
+
+MetaGPT exposes ~5 roles (PM, Architect, Engineer, QA).
+
+### 8. **JSON sidecar contracts for every artifact**
+
+`/prd`, `/architect`, `/createplan`, `pre-merge` all produce machine-readable JSON sidecars validated against schemas in `.claude/schemas/`. Reviewer agents read JSON, not parse markdown. The retry loop in Phase 5 decides on `verdict + findings[].fix_kind`, not regex.
+
+MetaGPT outputs are markdown; downstream tooling must re-parse.
+
+### 9. **Cross-model peer review**
+
+`/advisor` runs a Sonnet pass over Opus output (or vice versa) to catch undefended claims before stakeholder send. Different families catch different blind spots.
+
+MetaGPT has no equivalent hook.
+
+### 10. **Real shipped product as proof**
+
+Persona Studio ([persona-studio-lime.vercel.app](https://persona-studio-lime.vercel.app)) is a real product built end-to-end with one `/cto` brief. Indian-market AI influencer studio, currently in private beta.
+
+---
 
 ## Side-by-side
 
 | | MetaGPT | Tanker |
 |---|---|---|
 | **One-line entry** | `metagpt "build a snake game"` | `/cto "<brief>"` |
-| **Roles** | PM, Architect, Engineer, QA (~5) | 34 skills + 9 agents |
-| **SOPs** | Hardcoded role prompts | `.claude/skills/*/SKILL.md` + 3 always-on rules |
-| **Shared memory** | Environment + Memory objects (per-run) | `.claude/brain.md` + auto-memory + `outputs/<slug>/state.json` (persistent, resumable) |
-| **Context retrieval** | None | brain-index (ChromaDB over Obsidian vault) + refs-index (curated GitHub repos) |
+| **Output** | Local code repo | Deployed product (preview URL + prod URL + repo + monitoring) |
 | **Human gates** | None — fully autonomous | Two mandatory gates (PRD, MVP), pre-qualified by review agents |
-| **Real infra provisioning** | No — produces local code | Yes — gh + supabase + vercel + railway provisioner agents |
+| **Real infra provisioning** | No | Yes — gh + supabase + vercel + railway provisioner agents |
 | **Quality gates** | One QA agent | pre-merge + autoresearch-review + prd-reviewer + mvp-reviewer + site-eval + security-review |
-| **Cross-model peer review** | No | `/advisor` runs Sonnet over Opus output before stakeholder send |
-| **Output** | Local code repo | Deployed product (preview URL + prod URL + repo URL + monitoring) |
-| **Resumability** | Per-run, ephemeral | `state.json` checkpointed every phase — `/cto --resume <slug>` works across sessions |
-| **Cost ceiling** | None | `--max-cost-usd` (default $10) |
+| **Cross-model peer review** | No | `/advisor` runs another model over your model's output |
+| **Resumability** | Per-run, ephemeral | `state.json` checkpointed every phase; `--resume` works across sessions |
+| **Cost ceiling** | None | `--max-cost-usd` (default $10), tracked per Message |
 | **Audit trail** | Implicit in LLM logs | `messages.jsonl` with typed envelope per artifact |
+| **Context retrieval** | None | brain-index (Obsidian vault) + refs-index (curated GitHub) |
+| **Roles surface** | PM, Architect, Engineer, QA (~5) | 34 skills + 9 agents |
 | **Distribution** | Pip install | Drop `.claude/` into any project |
 | **License** | MIT | MIT |
 
-## What Tanker borrows from MetaGPT
+---
 
-Honest credit:
-
-1. **Typed Message schema with provenance** — `cause_by`, `sent_from`, `send_to`, `in_reply_to`. Tanker's [messages.jsonl](../architecture/messages.md) is directly inspired by MetaGPT's `metagpt/schema.py`.
-2. **SOP triplet prompt pattern** — Constraints + Reference + Output Format. Tanker's SKILL.md files now follow this rigid pattern, lifted from MetaGPT's `metagpt/actions/write_prd_an.py`.
-3. **Bounded review-retry loop** — Tanker's `/cto` Phase 5 caps engineering subagent retries at 2, matching MetaGPT's `WriteCodeReview` loop.
-4. **DataInterpreter pattern** — Tanker's `/analyst` skill (Plan → Execute → Reflect → Decide) is modeled on MetaGPT's `metagpt/roles/di/data_interpreter.py`.
-
-## What's different
-
-### 1. Tanker ships products, MetaGPT writes code
-
-MetaGPT's pipeline ends with a repo on disk. Tanker's `/cto` provisions GitHub + Supabase + Vercel + Railway, deploys, smoke-tests, and wires monitoring. Different scope.
-
-### 2. Two human gates, pre-qualified
-
-MetaGPT trusts the agent pipeline end-to-end. Tanker pauses twice — at PRD, at MVP — but only after a review agent has pre-qualified the artifact. The owner sees only what's worth seeing. Total owner attention per `/cto` run: ~30 minutes.
-
-### 3. Taste layer
-
-Tanker's `builder-ethos` rule encodes opinions: an explicit "No AI Slop" ban list, light-mode-only for SMB tools, mobile-first responsive, semantic HTML, IntersectionObserver animations. MetaGPT is taste-agnostic by design.
-
-### 4. Retrieval over personal corpus
-
-`brain-index` indexes your Obsidian vault. `refs-index` indexes curated GitHub repos. `/cto` Phase 1 retrieves from both before any other step. MetaGPT starts every run cold.
-
-### 5. Cross-model peer review
-
-`/advisor` runs Sonnet over Opus output (or vice versa) to catch undefended claims before stakeholder send. MetaGPT has no equivalent hook.
-
-### 6. Cost ceiling
-
-`--max-cost-usd <N>` aborts gracefully when hit. Tanker tracks spend per Message envelope. MetaGPT lets the run go.
-
-## What MetaGPT does better
+## When MetaGPT is the better choice
 
 Honest:
 
-- **Generic + reusable.** MetaGPT works for anyone, any domain. Tanker is opinion-locked.
-- **Multi-provider.** OpenAI, Claude, Azure, local — MetaGPT switches via `config2.yaml`. Tanker is Claude Code-native.
-- **Published research + community.** ICLR 2024 paper, 40k+ stars, Discord with 10k+ members. Tanker is new.
-- **Fully autonomous run.** No gates — better for short tasks where human attention is the bottleneck.
-- **Examples directory.** 40+ runnable examples vs Tanker's 5.
+- You want a **generic Python framework** that works across LLM providers (OpenAI, Azure, local, Claude). Tanker is Claude Code-native.
+- You want **fully autonomous runs** with no human checkpoints — you're running short tasks where human attention is the bottleneck.
+- You're studying multi-agent SOPs as a **research framework**.
+- You need **40+ runnable examples** for inspiration. Tanker has 5.
+- You're **not on Claude Code.**
 
-## When to use which
+---
 
-**Use MetaGPT if:**
-- You want a generic Python framework.
-- You're not on Anthropic's stack.
-- You want fully autonomous runs.
-- You want to study a published research framework.
+## When Tanker is the better choice
 
-**Use Tanker if:**
-- You're on Claude Code already.
-- You want a deployed product, not a repo.
-- You want human gates without owner attention burn.
-- You have an Obsidian vault or curated reference library you want the autopilot to draw from.
-- You want opinionated quality rails baked in.
+- You're already on **Claude Code** and want to stop re-explaining conventions every session.
+- You want a **deployed URL**, not a code repo. Provisioning + deploy + monitoring should be in scope, not your problem to wire afterwards.
+- You want **human gates without attention burn** — you want to be the head of product, not the QA bot.
+- You have an **Obsidian vault** or a **curated GitHub reference library** you want your autopilot to draw from.
+- You want **opinionated quality rails** (No AI Slop ban list, semantic HTML, mobile-first, light-mode-for-SMB-tools).
+- You want **predictable spend** — `--max-cost-usd` cap.
+- You want runs to be **resumable across sessions** with full audit trail.
 
-## Migrating from MetaGPT to Tanker
+---
 
-Concept mapping:
+## The bottom line
 
-| MetaGPT | Tanker |
-|---|---|
-| `Role` class | Skill (`.claude/skills/<name>/SKILL.md`) |
-| `Action` class | Skill output JSON sidecar (validated by `.claude/schemas/*`) |
-| `Environment` | `outputs/<slug>/` directory + `messages.jsonl` |
-| `Memory` | `.claude/brain.md` + brain-index (ChromaDB) |
-| `SoftwareCompany.investment` | `--max-cost-usd` flag |
-| `WriteCodeReview` loop | `/cto` Phase 5 retry loop |
-| `DataInterpreter` | `/analyst` skill |
+These are different products solving different problems. MetaGPT is a research-grade multi-agent framework — generic, autonomous, multi-provider. Tanker is an opinionated production pipeline — Claude Code-native, human-gated, deploys to real infrastructure.
 
-Most MetaGPT pipelines port to Tanker by writing their roles as SKILL.md files and chaining via Tanker's [skill chaining](../rules/builder-ethos.md) principle.
+Both are MIT. Pick the one that matches your operator model.

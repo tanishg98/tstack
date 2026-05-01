@@ -24,7 +24,7 @@ See [`.claude/tanker.yaml`](https://github.com/tanishg98/tanker/blob/main/.claud
 | `providers` | Anthropic (default) + OpenAI / Azure stubs for future multi-LLM |
 | `advisor.pairs` | Cross-model peer review pairings (author + reviewer) |
 | `cost_ceilings` | Default `--max-cost-usd` per run type |
-| `retries` | Bounded retry caps (steal #4) |
+| `retries` | Bounded retry caps |
 
 ## How it's read
 

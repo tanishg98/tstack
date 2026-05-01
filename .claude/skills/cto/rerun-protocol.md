@@ -1,6 +1,6 @@
 # /cto --rerun-from protocol
 
-> Selective replay from any Message envelope. Built on top of `messages.jsonl` (steal #1) and the subscription pass (steal #8).
+> Selective replay from any Message envelope. Built on top of the typed `messages.jsonl` audit trail and the subscription pass.
 
 ## Use cases
 
