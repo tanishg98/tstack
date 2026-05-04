@@ -1,15 +1,20 @@
 <div align="center">
 
-# tanker
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Tiempos+Headline&weight=700&size=72&duration=1&pause=99999&color=FAF9F6&center=true&vCenter=true&repeat=false&width=400&height=92&lines=tanker" />
+  <img src="https://readme-typing-svg.demolab.com?font=Tiempos+Headline&weight=700&size=72&duration=1&pause=99999&color=1A1A1A&center=true&vCenter=true&repeat=false&width=400&height=92&lines=tanker" alt="tanker" />
+</picture>
 
-### A Claude Code framework that ships **deployed products** from a one-line brief.
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=18&pause=1500&color=CC785C&center=true&vCenter=true&width=720&height=32&lines=A+Claude+Code+framework+that+ships+deployed+products;One+%2Fcto+brief+%E2%86%92+live+production+URL;Two+human+gates+pre-qualified+by+review+agents;Real+provisioning%3A+gh+%2B+supabase+%2B+vercel+%2B+railway;Cost+ceiling+built+in.+Resumable.+MIT." alt="What it does" />
+
+<br/><br/>
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](https://opensource.org/licenses/MIT)
 [![Stars](https://img.shields.io/github/stars/tanishg98/tanker?style=flat&color=cc785c)](https://github.com/tanishg98/tanker/stargazers)
 [![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-cc785c)](https://docs.claude.com/claude-code)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/tanishg98/tanker/pulls)
 
-[**Quick start →**](#install) · [**Examples →**](./examples/) · [**vs MetaGPT →**](./docs/comparisons/metagpt.md)
+[**Quick start →**](#try-it) · [**Examples →**](./examples/) · [**vs MetaGPT →**](./docs/comparisons/metagpt.md) · [**Live demo →**](https://persona-studio-lime.vercel.app)
 
 </div>
 
@@ -143,6 +148,21 @@ Loaded every session.
 </td>
 </tr>
 </table>
+
+---
+
+## Project status
+
+| Surface | Status |
+|---|---|
+| `/cto` autopilot orchestrator | ![Live](https://img.shields.io/badge/LIVE-22C55E?style=flat-square) |
+| 34 skills, 9 agents, 3 always-on rules | ![Live](https://img.shields.io/badge/LIVE-22C55E?style=flat-square) |
+| Real infrastructure provisioning (gh + supabase + vercel + railway) | ![Live](https://img.shields.io/badge/LIVE-22C55E?style=flat-square) |
+| Cost ceiling (`--max-cost-usd`) | ![Live](https://img.shields.io/badge/LIVE-22C55E?style=flat-square) |
+| Typed Message envelope per artifact | ![Live](https://img.shields.io/badge/LIVE-22C55E?style=flat-square) |
+| `/cto --rerun-from <msg_id>` selective replay | ![Spec](https://img.shields.io/badge/SPEC_ONLY-FFAA00?style=flat-square) |
+| Multi-LLM provider support | ![Roadmap](https://img.shields.io/badge/ROADMAP-CC785C?style=flat-square) |
+| Hosted `tanker.dev` with one-click `/cto` | ![Roadmap](https://img.shields.io/badge/ROADMAP-CC785C?style=flat-square) |
 
 ---
 
